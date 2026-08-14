@@ -4,6 +4,7 @@
 #include <iomanip>  // setw()
 #include <limits>   // numeric_limits<T>::T()
 #include <string>   // getline()
+#include <cctype>   // tolower()
 using namespace std;
 
 const string clientFile = "Build/clients.txt";
@@ -15,7 +16,16 @@ enum enMainMenuOption
     DeleteClient,
     UpdateClient,
     FindClient,
+    Transaction,
     Exit
+};
+
+enum enTransactionMenuOption
+{
+    Deposit = 1,
+    Withdraw,
+    TotalBalance,
+    Main
 };
 
 struct stClient
@@ -26,7 +36,6 @@ struct stClient
 };
 
 // helplers
-
 void headerScreen(const string &title)
 {
     cout << "\t\t   " << title << endl;
@@ -60,7 +69,7 @@ stClient lineToClient(string line)
     stClient client;
     vector<string> vTokens = split(line, "#//#");
 
-    if (vTokens.size() > 5)
+    if (vTokens.size() != 5)
         return {};
 
     client.id = vTokens[0];
@@ -131,7 +140,7 @@ void SaveCleintsDataToFile(const vector<stClient> &vClients)
 
 int findClientIndex(const vector<stClient> &vClients, const string &id)
 {
-    for (int i = 0; i < vClients.size(); i++)
+    for (size_t i = 0; i < vClients.size(); i++)
     {
         if (vClients[i].id == id)
             return i;
@@ -176,8 +185,13 @@ bool doesClientExist(const string &id)
     return false;
 }
 
-// readers
+void pause()
+{
+    cout << "\nPress Enter To Continue . . .\n";
+    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+}
 
+// readers
 int readNumberInRange(int from, int to)
 {
     int number;
@@ -203,7 +217,7 @@ int readNumberInRange(int from, int to)
 enMainMenuOption readMainMenuOption(const string &message)
 {
     cout << message;
-    return static_cast<enMainMenuOption>(readNumberInRange(1, 6));
+    return static_cast<enMainMenuOption>(readNumberInRange(1, 7));
 }
 
 string readString(const string &message)
@@ -217,15 +231,16 @@ string readString(const string &message)
 double readPositiveDouble(const string &message)
 {
     double number;
+
     cout << message;
     cin >> number;
 
-    while (number < 0 || cin.fail())
+    while (cin.fail() || number <= 0)
     {
-        if (number < 0)
-            cout << "Please enter a positive number: ";
-        else
+        if (cin.fail())
             cout << "Invalid input. Please try again: ";
+        else
+            cout << "Please enter a positive number: ";
 
         cin.clear();
         cin.ignore(numeric_limits<streamsize>::max(), '\n');
@@ -233,6 +248,7 @@ double readPositiveDouble(const string &message)
     }
 
     cin.ignore(numeric_limits<streamsize>::max(), '\n');
+
     return number;
 }
 
@@ -254,12 +270,17 @@ stClient readNewClient()
     return client;
 }
 
-// show
+enTransactionMenuOption readTransactionMenuOption(const string &message)
+{
+    cout << message;
+    return static_cast<enTransactionMenuOption>(readNumberInRange(1, 4));
+}
 
+// show
 void showClientsList(const vector<stClient> &vClients)
 {
     cout << "\t\t\t Client Members [" << vClients.size() << "]\n";
-    cout << string(50, '-') << endl;
+    cout << string(80, '-') << endl;
 
     cout << "| " << left << setw(15) << "Id";
     cout << "| " << left << setw(15) << "Pin code";
@@ -275,7 +296,7 @@ void showClientsList(const vector<stClient> &vClients)
         cout << "| " << left << setw(15) << client.phone;
         cout << "| " << left << setw(15) << client.balance << endl;
     }
-    cout << string(50, '_') << endl;
+    cout << string(80, '_') << endl;
 }
 
 void displayShowClients()
@@ -286,7 +307,6 @@ void displayShowClients()
 }
 
 // add
-
 void addNewClient(vector<stClient> &vClients)
 {
 
@@ -308,7 +328,6 @@ void displayAddNewClient()
 }
 
 // delete
-
 void deleteClient(vector<stClient> &vClients, const string &id)
 {
     int index = findClientIndex(vClients, id);
@@ -340,7 +359,6 @@ void displayDeleteClient()
 }
 
 // update
-
 void updateClientData(stClient &client)
 {
     client.pinCode = readString("Enter Pin Code: ");
@@ -379,7 +397,6 @@ void displayUpdateClient()
 }
 
 // find
-
 void findClient(const vector<stClient> &vClients, const string &id)
 {
     int index = findClientIndex(vClients, id);
@@ -402,14 +419,173 @@ void displayFindClient()
     findClient(vClients, id);
 }
 
-// start
-
-void pause()
+// deposit
+bool deposit(stClient &client, double amount)
 {
-    cout << "\nPress Enter To Continue . . .\n";
-    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+    if (amount <= 0)
+        return false;
+
+    client.balance += amount;
+
+    return true;
 }
 
+void displayDeposit()
+{
+    vector<stClient> vClients = loadClientFileToVector();
+    string id = readString("Enter Id: ");
+    int index = findClientIndex(vClients, id);
+
+    if (index != -1)
+    {
+        printClientData(vClients[index]);
+        double amount = readPositiveDouble("Enter amount: ");
+
+        if (confirmAction("are you sure ? (y-n): "))
+        {
+            if (deposit(vClients[index], amount))
+            {
+                SaveCleintsDataToFile(vClients);
+
+                cout << "\nDone Successfully\n";
+                cout << "New balance: "
+                     << vClients[index].balance;
+            }
+        }
+        else
+        {
+            cout << "\nhas been canceled\n";
+        }
+    }
+    else
+    {
+        cout << "\nclient not found\n";
+    }
+}
+
+// withdraw
+bool withdraw(stClient &client, double amount)
+{
+    if (amount <= 0)
+        return false;
+
+    if (amount > client.balance)
+    {
+        cout << "Amount exceeds the balance, you can withdraw up to: " << client.balance << endl;
+        return false;
+    }
+
+    client.balance -= amount;
+    return true;
+}
+
+void displayWithdraw()
+{
+    vector<stClient> vClients = loadClientFileToVector();
+    string id = readString("Enter Id: ");
+    int index = findClientIndex(vClients, id);
+
+    if (index != -1)
+    {
+        printClientData(vClients[index]);
+        double amount = readPositiveDouble("Enter withdraw amount: ");
+
+        if (confirmAction("are you sure ? (y-n): "))
+        {
+            if (withdraw(vClients[index], amount))
+            {
+                cout << "\nWithdraw completed successfully\n";
+                SaveCleintsDataToFile(vClients);
+            }
+        }
+        else
+        {
+            cout << "\nhas been canceled\n";
+        }
+    }
+    else
+    {
+        cout << "\nClient Not Found\n";
+    }
+}
+
+// total balance
+void displayTotalBalance()
+{
+    vector<stClient> vClients = loadClientFileToVector();
+    double totalBalance = 0;
+
+    cout << "\t\t\t Balance List [" << vClients.size() << "]\n";
+    cout << string(80, '-') << endl;
+
+    cout << "| " << left << setw(15) << "Id";
+    cout << "| " << left << setw(18) << "Name";
+    cout << "| " << left << setw(15) << "Balance" << endl;
+
+    for (const stClient &client : vClients)
+    {
+        cout << "| " << left << setw(15) << client.id;
+        cout << "| " << left << setw(18) << client.name;
+        cout << "| " << left << setw(15) << client.balance << endl;
+        totalBalance += client.balance;
+    }
+    cout << string(80, '_') << endl;
+
+    cout << "\t\t\t Total Balance: " << totalBalance << endl;
+}
+
+// Transaction
+void handleTransactionOption(enTransactionMenuOption option)
+{
+    system("cls");
+
+    switch (option)
+    {
+    case Deposit:
+        displayDeposit();
+        break;
+
+    case Withdraw:
+        displayWithdraw();
+        break;
+
+    case TotalBalance:
+        displayTotalBalance();
+        break;
+
+    case Main:
+        break;
+    }
+}
+
+void showTransactionMenu()
+{
+    headerScreen("Transaction Menu Screen");
+    cout << "[1] Deposit\n";
+    cout << "[2] Withdraw\n";
+    cout << "[3] Total Balance\n";
+    cout << "[4] Exit\n";
+    cout << string(50, '-') << endl;
+}
+
+void displayTransaction()
+{
+    enTransactionMenuOption option;
+    do
+    {
+        system("cls");
+
+        showTransactionMenu();
+        option = readTransactionMenuOption("choose an option [1-4]: ");
+        handleTransactionOption(option);
+
+        if (option != Main)
+            pause();
+
+    } while (option != Main);
+}
+
+// start
 void showMainMenu()
 {
     headerScreen("Main Menu Screen");
@@ -418,7 +594,8 @@ void showMainMenu()
     cout << "[3] Delete Client\n";
     cout << "[4] Update Client\n";
     cout << "[5] Find Client\n";
-    cout << "[6] Exit\n";
+    cout << "[6] Transaction\n";
+    cout << "[7] Exit\n";
     cout << string(50, '-') << endl;
 }
 
@@ -448,6 +625,10 @@ void handleMainMenuOption(enMainMenuOption option)
         displayFindClient();
         break;
 
+    case Transaction:
+        displayTransaction();
+        break;
+
     case Exit:
         cout << "\nProgram closed\n";
         break;
@@ -462,10 +643,10 @@ void mainMenu()
         system("cls");
 
         showMainMenu();
-        option = readMainMenuOption("Choose an option [1-6]: ");
+        option = readMainMenuOption("Choose an option [1-7]: ");
         handleMainMenuOption(option);
 
-        if (option != Exit)
+        if (option != Exit && option != Transaction)
             pause();
 
     } while (option != Exit);

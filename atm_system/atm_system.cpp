@@ -30,7 +30,7 @@ stClient currentClient;
 
 // Helpers
 string clientToLine(const stClient &client, const string &separator);
-void saveChangesToFile(const vector<stClient> &vClients);
+void SaveCleintsDataToFile(const vector<stClient> &vClients);
 bool confirmAction(const string &message);
 void headerScreen(const string &title);
 vector<string> split(string line, const string &separator);
@@ -88,7 +88,7 @@ string clientToLine(const stClient &client, const string &separator)
     return line;
 }
 
-void saveChangesToFile(const vector<stClient> &vClients)
+void SaveCleintsDataToFile(const vector<stClient> &vClients)
 {
     ofstream file(clientsFile);
 
@@ -366,7 +366,7 @@ void deposit(vector<stClient> &vClients, int depositAmount)
         {
             client.balance = currentClient.balance;
             cout << "done successfully, new balance is: " << currentClient.balance << endl;
-            saveChangesToFile(vClients);
+            SaveCleintsDataToFile(vClients);
             break;
         }
     }
